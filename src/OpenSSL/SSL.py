@@ -826,6 +826,36 @@ class Session:
     _session: Any
 
 
+def d2i_SSL_SESSION(data: bytes) -> Session:
+    p = _ffi.new("unsigned char[]", data)
+    pp = _ffi.new("unsigned char **")
+    pp[0] = p
+    length = _ffi.cast("long", len(data))
+
+    session = _lib.d2i_SSL_SESSION(_ffi.NULL, pp, length)
+    if session == _ffi.NULL:
+        raise RuntimeError("d2i_SSL_SESSION failed")
+
+    pysession = Session.__new__(Session)
+    pysession._session = _ffi.gc(session, _lib.SSL_SESSION_free)
+    return pysession
+
+def i2d_SSL_SESSION(session: Session) -> bytes:
+
+    length = _lib.i2d_SSL_SESSION(session._session, _ffi.NULL)
+    if length == 0:
+        raise RuntimeError("i2d_SSL_SESSION failed to get length")
+
+    pp = _ffi.new("unsigned char **")
+    p = _ffi.new("unsigned char[]", length)
+    pp[0] = p
+
+    length = _lib.i2d_SSL_SESSION(session._session, pp)
+    if length == 0:
+        raise RuntimeError("i2d_SSL_SESSION failed to produce DER")
+
+    return _ffi.buffer(p, length)[:]
+
 class Context:
     """
     :class:`OpenSSL.SSL.Context` instances define the parameters for setting
